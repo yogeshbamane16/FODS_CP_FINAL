@@ -1,183 +1,187 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 
 #define MAX_PLACES 20
-#define INFINITY INT_MAX
 
 typedef struct Place {
     char name[30];
-    int id;
+    char type[20];
 } Place;
 
-typedef struct RoadMap {
-    int distances[MAX_PLACES][MAX_PLACES];
-    Place places[MAX_PLACES];
-    int place_count;
-} RoadMap;
+typedef struct Road {
+    int from;
+    int to;
+    int distance;
+} Road;
 
-// Create empty roadmap
-RoadMap* create_roadmap() {
-    RoadMap* map = (RoadMap*)malloc(sizeof(RoadMap));
-    map->place_count = 0;
-    
-    for (int i = 0; i < MAX_PLACES; i++) {
-        for (int j = 0; j < MAX_PLACES; j++) {
-            map->distances[i][j] = (i == j) ? 0 : INFINITY;
-        }
-    }
+typedef struct EmergencyMap {
+    Place locations[MAX_PLACES];
+    Road roads[MAX_PLACES * MAX_PLACES];
+    int location_count;
+    int road_count;
+} EmergencyMap;
+
+// Create empty map
+EmergencyMap* create_emergency_map() {
+    EmergencyMap* map = (EmergencyMap*)malloc(sizeof(EmergencyMap));
+    map->location_count = 0;
+    map->road_count = 0;
     return map;
 }
 
-// Add place to roadmap
-void add_place(RoadMap* map, char* name) {
-    if (map->place_count < MAX_PLACES) {
-        strcpy(map->places[map->place_count].name, name);
-        map->places[map->place_count].id = map->place_count;
-        map->place_count++;
+// Add emergency location
+void add_location(EmergencyMap* map, char* name, char* type) {
+    if (map->location_count < MAX_PLACES) {
+        strcpy(map->locations[map->location_count].name, name);
+        strcpy(map->locations[map->location_count].type, type);
+        map->location_count++;
+        printf("%s location '%s' added! (ID: %d)\n", type, name, map->location_count);
     }
 }
 
-// Add road between places
-void add_road(RoadMap* map, int from, int to, int distance) {
-    if (from < map->place_count && to < map->place_count) {
-        map->distances[from][to] = distance;
-        map->distances[to][from] = distance;
+// Add road between locations
+void add_road(EmergencyMap* map, int from_id, int to_id, int distance) {
+    if (from_id < 1 || from_id > map->location_count || to_id < 1 || to_id > map->location_count) {
+        printf("Invalid location IDs!\n");
+        return;
     }
-}
-
-// Find shortest path using Dijkstra
-void find_shortest_path(RoadMap* map, int start, int end) {
-    int dist[MAX_PLACES];
-    int visited[MAX_PLACES] = {0};
-    int previous[MAX_PLACES];
-    
-    for (int i = 0; i < map->place_count; i++) {
-        dist[i] = INFINITY;
-        previous[i] = -1;
-    }
-    dist[start] = 0;
-    
-    for (int count = 0; count < map->place_count - 1; count++) {
-        int min_dist = INFINITY;
-        int current = -1;
-        
-        // Find nearest unvisited place
-        for (int i = 0; i < map->place_count; i++) {
-            if (!visited[i] && dist[i] < min_dist) {
-                min_dist = dist[i];
-                current = i;
-            }
-        }
-        
-        if (current == -1) break;
-        visited[current] = 1;
-        
-        // Update distances to neighbors
-        for (int i = 0; i < map->place_count; i++) {
-            if (!visited[i] && map->distances[current][i] != INFINITY &&
-                dist[current] != INFINITY &&
-                dist[current] + map->distances[current][i] < dist[i]) {
-                dist[i] = dist[current] + map->distances[current][i];
-                previous[i] = current;
-            }
-        }
-    }
-    
-    if (dist[end] == INFINITY) {
-        printf("No route found!\n");
+    if (distance <= 0) {
+        printf("Distance must be positive!\n");
         return;
     }
     
-    printf("Shortest path from %s to %s: %d km\n", 
-           map->places[start].name, map->places[end].name, dist[end]);
+    from_id--;
+    to_id--;
     
-    // Show path
-    int path[MAX_PLACES];
-    int path_count = 0;
-    int current = end;
+    map->roads[map->road_count].from = from_id;
+    map->roads[map->road_count].to = to_id;
+    map->roads[map->road_count].distance = distance;
+    map->road_count++;
     
-    while (current != -1) {
-        path[path_count++] = current;
-        current = previous[current];
-    }
-    
-    printf("Route: ");
-    for (int i = path_count - 1; i >= 0; i--) {
-        printf("%s", map->places[path[i]].name);
-        if (i > 0) printf(" -> ");
-    }
-    printf("\n");
+    printf("Road added: %s <-> %s (%d km)\n", 
+           map->locations[from_id].name, map->locations[to_id].name, distance);
 }
 
-// Show all places
-void show_places(RoadMap* map) {
-    printf("\n--- Available Places ---\n");
-    for (int i = 0; i < map->place_count; i++) {
-        printf("%d. %s\n", i, map->places[i].name);
+// Show all locations
+void show_locations(EmergencyMap* map) {
+    printf("\n--- EMERGENCY LOCATIONS ---\n");
+    if (map->location_count == 0) {
+        printf("No locations added yet!\n");
+        return;
+    }
+    
+    for (int i = 0; i < map->location_count; i++) {
+        printf("%d. %s [%s]\n", i+1, map->locations[i].name, map->locations[i].type);
+    }
+    
+    if (map->road_count > 0) {
+        printf("\nRoad Connections: %d\n", map->road_count);
+        for (int i = 0; i < map->road_count; i++) {
+            printf("%s <-> %s (%d km)\n",
+                   map->locations[map->roads[i].from].name,
+                   map->locations[map->roads[i].to].name,
+                   map->roads[i].distance);
+        }
     }
 }
 
-// Member 5's main function
+// AUTOMATICALLY find and display the shortest route
+void find_shortest_route(EmergencyMap* map) {
+    if (map->location_count < 2) {
+        printf("Need at least 2 locations!\n");
+        return;
+    }
+    
+    if (map->road_count == 0) {
+        printf("No roads added!\n");
+        return;
+    }
+    
+    // Find the road with shortest distance
+    int shortest_index = -1;
+    int shortest_distance = 1000000; // Large number
+    
+    for (int i = 0; i < map->road_count; i++) {
+        if (map->roads[i].distance < shortest_distance) {
+            shortest_distance = map->roads[i].distance;
+            shortest_index = i;
+        }
+    }
+    
+    // Display the shortest route automatically
+    if (shortest_index != -1) {
+        printf("SHORTEST ROUTE: %s <-> %s (%d km)\n", 
+               map->locations[map->roads[shortest_index].from].name,
+               map->locations[map->roads[shortest_index].to].name,
+               shortest_distance);
+    }
+}
+
+// Add location with user input
+void add_location_interactive(EmergencyMap* map) {
+    char name[30], type[20];
+    
+    printf("\nEnter location name: ");
+    while (getchar() != '\n');
+    fgets(name, 30, stdin); 
+    name[strcspn(name, "\n")] = 0;
+    
+    printf("Enter type (Danger/Safe/Hospital/Shelter): ");
+    fgets(type, 20, stdin); 
+    type[strcspn(type, "\n")] = 0;
+    
+    add_location(map, name, type);
+}
+
+// Add road with user input
+void add_road_interactive(EmergencyMap* map) {
+    if (map->location_count < 2) {
+        printf("Need at least 2 locations!\n");
+        return;
+    }
+    
+    printf("Available Locations:\n");
+    for (int i = 0; i < map->location_count; i++) {
+        printf("%d. %s [%s]\n", i+1, map->locations[i].name, map->locations[i].type);
+    }
+    
+    int from_id, to_id, distance;
+    printf("\nEnter FROM location ID: ");
+    scanf("%d", &from_id);
+    printf("Enter TO location ID: ");
+    scanf("%d", &to_id);
+    printf("Enter distance (km): ");
+    scanf("%d", &distance);
+    
+    add_road(map, from_id, to_id, distance);
+}
+
+// Main route planner function
 void run_route_planner() {
-    printf("\n=== ROUTE PLANNER ===\n");
-    RoadMap* city_map = create_roadmap();
-    
-    // Add sample places
-    add_place(city_map, "Danger Zone");
-    add_place(city_map, "Main Street");
-    add_place(city_map, "Hospital");
-    add_place(city_map, "Safe Zone");
-    
-    // Add sample roads
-    add_road(city_map, 0, 1, 5);
-    add_road(city_map, 1, 2, 3);
-    add_road(city_map, 1, 3, 8);
-    add_road(city_map, 2, 3, 6);
+    printf("\n=== EMERGENCY EVACUATION PLANNER ===\n");
+    EmergencyMap* emergency_map = create_emergency_map();
     
     int choice;
     
     do {
-        printf("\n1. Find Shortest Route\n2. Show Places\n3. Add Place\n4. Add Road\n0. Back\nChoice: ");
+        printf("\n1. Find Shortest Route\n");
+        printf("2. Show All Locations & Roads\n");
+        printf("3. Add Emergency Location\n");
+        printf("4. Add Road Connection\n");
+        printf("0. Back to Main Menu\n");
+        printf("Choice: ");
         scanf("%d", &choice);
         
         switch(choice) {
-            case 1: {
-                int start, end;
-                show_places(city_map);
-                printf("Start place ID: ");
-                scanf("%d", &start);
-                printf("End place ID: ");
-                scanf("%d", &end);
-                find_shortest_path(city_map, start, end);
-                break;
-            }
-            case 2:
-                show_places(city_map);
-                break;
-            case 3: {
-                char name[30];
-                printf("Place name: ");
-                getchar();
-                fgets(name, 30, stdin); name[strcspn(name, "\n")] = 0;
-                add_place(city_map, name);
-                printf("Place added!\n");
-                break;
-            }
-            case 4: {
-                int from, to, dist;
-                show_places(city_map);
-                printf("From ID: ");
-                scanf("%d", &from);
-                printf("To ID: ");
-                scanf("%d", &to);
-                printf("Distance: ");
-                scanf("%d", &dist);
-                add_road(city_map, from, to, dist);
-                printf("Road added!\n");
-                break;
-            }
+            case 1: find_shortest_route(emergency_map); break;
+            case 2: show_locations(emergency_map); break;
+            case 3: add_location_interactive(emergency_map); break;
+            case 4: add_road_interactive(emergency_map); break;
+            case 0: printf("Returning to main menu...\n"); break;
+            default: printf("Invalid choice!\n");
         }
     } while(choice != 0);
+    
+    free(emergency_map);
 }
